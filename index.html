@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080e19">
+<title>CRASH Arcade</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080e19;color:white;font-family:Arial,sans-serif}
+header{padding:20px;display:flex;justify-content:space-between;
+align-items:center;border-bottom:1px solid #263247}
+.logo{font-size:27px;font-weight:900;color:#35e59a}
+.balance{background:#17263a;padding:12px;border-radius:12px;color:#42e8a1}
+main{padding:15px;max-width:650px;margin:auto}
+.panel{background:#101c2e;border:1px solid #263b53;
+border-radius:18px;padding:15px;margin-bottom:15px}
+h3{margin-top:0;color:#9db4d1}
+#arena{height:260px;position:relative;overflow:hidden;
+border-radius:14px;background:linear-gradient(#102746,#101b30)}
+#multiplier{position:absolute;top:35%;width:100%;
+text-align:center;font-size:48px;font-weight:bold;color:#36e99c}
+#plane{position:absolute;left:10%;bottom:22px;font-size:38px;
+transition:left .1s linear}
+#status{text-align:center;margin-top:12px;color:#a9bbd1}
+label{display:block;margin:12px 0 7px;color:#b5c6dc}
+input{width:100%;padding:14px;border:1px solid #344962;
+border-radius:10px;background:#091321;color:white;font-size:17px}
+button{padding:14px;border:0;border-radius:11px;font-size:16px;
+font-weight:bold;cursor:pointer}
+#start{background:#28d991;color:#06140e;width:100%;margin-top:14px}
+#cashout{background:#f0b83d;color:#211400;width:100%;margin-top:10px}
+button:disabled{opacity:.4}
+.row{display:flex;gap:10px}
+.stat{flex:1;background:#17263a;padding:12px;border-radius:10px}
+.small{color:#9bb0ca;font-size:12px}
+#history{display:flex;gap:8px;flex-wrap:wrap}
+.tag{background:#1b3047;padding:7px 10px;border-radius:20px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">✈ CRASH</div>
+  <div class="balance">🪙 <span id="balance">1000</span></div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="row">
+      <div class="stat"><div class="small">GAME MODE</div>
+        <b>ARCADE</b></div>
+      <div class="stat"><div class="small">PLAYERS</div>
+        <b>1 / 20</b></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div id="arena">
+      <div id="multiplier">1.00x</div>
+      <div id="plane">✈️</div>
+    </div>
+    <div id="status">Ready for takeoff?</div>
+  </div>
+
+  <div class="panel">
+    <h3>YOUR FLIGHT</h3>
+    <label>Virtual coins to play</label>
+    <input id="bet" type="number" min="10" max="1000"
+      value="100">
+    <button id="start" onclick="startGame()">START ROUND</button>
+    <button id="cashout" onclick="cashOut()" disabled>
+      CASH OUT
+    </button>
+    <p class="small">Demo game. Virtual coins only. No cash value.</p>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="stat">
+        <div class="small">LAST RESULT</div>
+        <b id="last">--</b>
+      </div>
+      <div class="stat">
+        <div class="small">YOUR WIN</div>
+        <b id="win">0</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>ROUND HISTORY</h3>
+    <div id="history"><span class="small">No rounds yet</span></div>
+  </div>
+
+  <div class="panel">
+    <h3>🏆 LEADERBOARD</h3>
+    <p class="small">Online leaderboard will be connected
+      in the next development stage.</p>
+    <b>1. You — <span id="score">0</span> points</b>
+  </div>
+</main>
+
+<script>
+let balance = Number(localStorage.getItem("crashBalance") || 1000);
+let running = false;
+let cashed = false;
+let multiplier = 1;
+let crashPoint = 0;
+let timer = null;
+let betAmount = 0;
+let score = 0;
+let history = [];
+
+const $ = id => document.getElementById(id);
+
+function update(){
+  $("balance").textContent = balance;
+  localStorage.setItem("crashBalance",balance);
+}
+
+update();
+
+function startGame(){
+  if(running) return;
+  betAmount = Number($("bet").value);
+
+  if(!Number.isInteger(betAmount) || betAmount < 10 ||
+     betAmount > 1000 || betAmount > balance){
+    $("status").textContent = "Enter a valid bet (10–1000 coins)";
+    return;
+  }
+
+  balance -= betAmount;
+  update();
+
+  running = true;
+  cashed = false;
+  multiplier = 1;
+  crashPoint = 1.1 + Math.random()*8;
+  $("win").textContent = "0";
+  $("last").textContent = "--";
+  $("status").textContent = "✈ Plane is flying!";
+  $("start").disabled = true;
+  $("cashout").disabled = false;
+  $("plane").style.left = "10%";
+
+  let start = Date.now();
+
+  timer = setInterval(()=>{
+    let elapsed = (Date.now()-start)/1000;
+    multiplier = Math.exp(elapsed*.25);
+    $("multiplier").textContent = multiplier.toFixed(2)+"x";
+    $("plane").style.left = Math.min(85,10+elapsed*8)+"%";
+
+    if(multiplier >= crashPoint){
+      finish();
+    }
+  },50);
+}
+
+function cashOut(){
+  if(!running || cashed) return;
+
+  cashed = true;
+  let payout = Math.floor(betAmount*multiplier);
+  balance += payout;
+  score += payout;
+  $("win").textContent = payout+" coins";
+  $("score").textContent = score;
+  $("status").textContent = "Cashed out at "+multiplier.toFixed(2)+"x!";
+  update();
+  finish();
+}
+
+function finish(){
+  if(!running) return;
+  running = false;
+  clearInterval(timer);
+  $("cashout").disabled = true;
+  $("start").disabled = false;
+
+  if(!cashed){
+    $("status").textContent = "💥 CRASHED at "+
+      multiplier.toFixed(2)+"x! Try again.";
+    $("win").textContent = "0";
+  }
+
+  $("last").textContent = multiplier.toFixed(2)+"x";
+  history.unshift(multiplier.toFixed(2)+"x");
+  history = history.slice(0,8);
+  $("history").innerHTML = history.map(x=>
+    '<span class="tag">'+x+'</span>').join("");
+  $("plane").style.left = "10%";
+}
+</script>
+</body>
+</html>
